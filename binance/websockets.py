@@ -72,7 +72,7 @@ class BinanceSocketManager(threading.Thread):
 
     DEFAULT_USER_TIMEOUT = 30 * 60  # 30 minutes
 
-    def __init__(self, client, user_timeout=DEFAULT_USER_TIMEOUT):
+    def __init__(self, client, user_timeout=DEFAULT_USER_TIMEOUT, testnet=False):
         """Initialise the BinanceSocketManager
 
         :param client: Binance API client
@@ -81,11 +81,15 @@ class BinanceSocketManager(threading.Thread):
         :type user_timeout: int
 
         """
+
+        if testnet:
+            self.FSTREAM_URL = 'wss://fstream.binancefuture.com/'
+
         threading.Thread.__init__(self)
         self._conns = {}
         self._client = client
         self._user_timeout = user_timeout
-        self._timers = {'user': None, 'margin': None} 
+        self._timers = {'user': None, 'margin': None}
         self._listen_keys = {'user': None, 'margin': None}
         self._account_callbacks = {'user': None, 'margin': None}
         # Isolated margin sockets will be opened under the 'symbol' name
@@ -118,7 +122,7 @@ class BinanceSocketManager(threading.Thread):
         self._conns[path] = connectWS(factory, context_factory)
         return path
 
-    def start_depth_socket(self, symbol, callback, depth=None, interval=None):
+    def start_depth_socket(self, symbol, callback, depth=None):
         """Start a websocket for symbol market depth returning either a diff or a partial book
 
         https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#partial-book-depth-streams
@@ -129,8 +133,6 @@ class BinanceSocketManager(threading.Thread):
         :type callback: function
         :param depth: optional Number of depth entries to return, default None. If passed returns a partial book instead of a diff
         :type depth: str
-        :param interval: optional interval for updates, default None. If not set, updates happen every second. Must be 0, None (1s) or 100 (100ms)
-        :type interval: int
 
         :returns: connection key string if successful, False otherwise
 
@@ -187,11 +189,6 @@ class BinanceSocketManager(threading.Thread):
         socket_name = symbol.lower() + '@depth'
         if depth and depth != '1':
             socket_name = '{}{}'.format(socket_name, depth)
-        if interval:
-            if interval in [0, 100]:
-                socket_name = '{}@{}ms'.format(socket_name, interval)
-            else:
-                raise ValueError("Websocket interval value not allowed. Allowed values are [0, 100]")
         return self._start_socket(socket_name, callback)
 
     def start_kline_socket(self, symbol, callback, interval=Client.KLINE_INTERVAL_1MINUTE):
